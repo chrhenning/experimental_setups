@@ -25,3 +25,15 @@ Being able to draw a bar chart with error bars.
 Allows us to compute the sound pressure level (SPL) from recorded samples.
 
 [Download spl_v3](https://ch.mathworks.com/matlabcentral/fileexchange/35876-sound-pressure-level-calculator)
+
+## buttondlg
+
+Allows us to display a [questdlg](https://ch.mathworks.com/help/matlab/ref/questdlg.html) with custom icons.
+
+[Download buttondlg](https://ch.mathworks.com/matlabcentral/fileexchange/46401-specifying-icon-in-questdlg)
+
+## findjobj
+
+Allows us greater control over the elements in a GUIDE gui.
+
+[Download findjobj](https://ch.mathworks.com/matlabcentral/fileexchange/14317-findjobj-find-java-handles-of-matlab-graphic-objects)

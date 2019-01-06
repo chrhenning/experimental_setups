@@ -31,10 +31,37 @@ function session = setOutputListener(session)
     p = session.UserData.p;
     d = session.UserData.d;
     
+    %% Some variables that will be modified during the session.
     % This will be our timer reference when queuing data on the NIDAQ.
     % I.e., we will queue data from d.timeRef until 
     % min(session_duration, d.timeRef + p.continuousWin)
     d.timeRef = 0;
+    % This flag will tell use, whether we are currently pausing the
+    % session.
+    d.sessionPaused = 0;
+    % This will be an array of size n x 6, where n is the number of output
+    % windows pushed to the NIDAQ (including paused windows).
+    % The four numbers per row will be: start of win (in sec), end of win
+    % (in sec), num steps in win, cumulative number of steps of all wins 
+    % (including this one), cumulative number of steps of all wins except
+    % paused once and whether it is a pausing window.
+    % This information can later be used, to handle pauses outside the data
+    % queuing function.
+    % Note, that if paused, the time windows have no meaning.
+    d.outputDataWindows = [];
+    % The total number of time frames pushed to the NIDAQ so far (including
+    % paused windows).
+    % assert(sum(outputDataWindows(:,3)) == totalStepsPushedSoFar);
+    d.totalStepsPushedSoFar = 0;
+    % The total number of time frames pushed to the NIDAQ, when the session
+    % wasn't paused.
+    % assert(sum(outputDataWindows(outputDataWindows(:, 6) == 0, 3)) ...
+    %        == recStepsPushedSoFar); 
+    d.recStepsPushedSoFar = 0;
+    % The number of windows pushed to the NIDAQ after the last actual data
+    % window has been send (i.e., while waiting for the input listener to
+    % end the session.
+    d.zeroCyclesAfterRec = 0;
     
     tempOutputFileNames = cell(1, d.numRecs);
     for i = 1:d.numRecs

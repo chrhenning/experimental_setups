@@ -35,22 +35,27 @@ function dataObj = bcam_view(dataObj)
     num_recs = d.numRecs;
     cams_per_rec = size(p.bcDeviceID, 2);
     
-    fig = figure('Name', 'Behavior Camera Live View');
+    % NOTE, we add the subplots to an uipanel, as we can't add suplots to
+    % an axes that is within the GUIDE figure. However, for some reasone,
+    % we cannot set the current figure (using figPanel.Parent) nor the
+    % current axes (I tried various methods to set gca and gcf). The reason
+    % is not quite clear. Hence, one always has to set which figure and
+    % axes has to be used in the following code.
+    figPanel = d.recView.getBCamPanel();
     
     % FIXME dirty solution to maximize the window.
     try
-        warning('off','all')
-        pause(0.00001);
-        frame_h = get(handle(gcf),'JavaFrame');
-        set(frame_h,'Maximized',1); 
-        warning('on','all')
+        warning('off', 'all')
+        pause(0.1);
+        frame_h = get(handle(figPanel.Parent), 'JavaFrame');
+        set(frame_h, 'Maximized', 1); 
+        pause(0.1);
+        warning('on', 'all')
     catch
         warning('Could not maximize window.');
     end
     
-    subplots = cell(1, num_cams);
-    
-    axis('square');   
+    subplots = cell(1, num_cams); 
     hImages = cell(num_cams, 1);
     
     num_rows = floor(sqrt(num_cams));
@@ -64,9 +69,10 @@ function dataObj = bcam_view(dataObj)
             nBands = d.bcVidObjects{i}.NumberOfBands; 
 
             subplots{i} = subplot(num_rows, num_cols, ...
-                (r-1) * cams_per_rec + c);
+                (r-1) * cams_per_rec + c, 'Parent', figPanel);
 
-            hImages{i} = image( zeros(vidRes(2), vidRes(1), nBands) );
+            hImages{i} = image(subplots{i}, zeros(vidRes(2), vidRes(1), ...
+                nBands));
 
             setappdata(hImages{i}, 'UpdatePreviewWindowFcn', ...
                 @custom_preview_fcn); 
@@ -76,7 +82,7 @@ function dataObj = bcam_view(dataObj)
             
             preview(d.bcVidObjects{i}, hImages{i});   
 
-            title(['Cohort ' num2str(p.cohort(r)) ', ' ...
+            title(subplots{i}, ['Cohort ' num2str(p.cohort(r)) ', ' ...
                 'Group ' num2str(p.group(r)) ', ' ...
                 'Session ' num2str(p.session(r)) ', ' ...
                 'Subject ' num2str(p.subject(r)) newline ...
@@ -84,16 +90,13 @@ function dataObj = bcam_view(dataObj)
                 'Frames acquired: ' ...
                 num2str(d.bcVidObjects{i}.FramesAcquired)]);
 
-            set(gca,'Visible','off')
-            set(get(gca,'Title'),'Visible','on')
+            set(subplots{i}, 'Visible', 'off')
+            set(get(subplots{i}, 'Title'), 'Visible', 'on')
+            
+            %axis(subplots{i}, 'equal')
+            axis(subplots{i}, 'image')
         end
-    end
-
-    % Make sure that previews keep their size.
-    axesHandles = findobj(get(gcf,'Children'), 'flat', 'Type', 'axes');
-    axis(axesHandles, 'equal')
-    
-    d.bcFigure = fig;
+    end    
     
     % Timer, that updates the frames acquired yet.
     t = timer('BusyMode', 'drop', 'Period', 0.5, ...
@@ -102,8 +105,6 @@ function dataObj = bcam_view(dataObj)
     d.bcFigureTimer = t;
     
     start(t);  
-    
-    
     
     dataObj.d = d;
 end

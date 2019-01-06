@@ -349,7 +349,15 @@ function params = preprocessParams(params)
             assert(size(p.sdShockChannels, 1) == nr);
         end
     end
+       
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%% Miscellaneous Options %%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    if p.useBulkMode
+        p.correctRecordedInputs = 0;
+    end
     
+    %% Return corrected parameters.
     params = p;
 end
 

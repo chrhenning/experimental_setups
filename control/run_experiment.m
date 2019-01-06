@@ -33,7 +33,7 @@ addpath(genpath(fileparts(mfilename('fullpath'))));
 p = params();
 p = preprocessParams(p);
 
-% A data container that comprises all infos need by subfunctions.
+% A data container that comprises all infos needed by subfunctions.
 data = struct();
 data.p = p;
 data.d = struct();
@@ -114,12 +114,30 @@ else
 end
 data = checkDesignCompatibility(data);
 
+%% Global Variables used in this Program
+% This flag is set to true, if the function myError is called.
+global errorOccurredDuringSession;
+errorOccurredDuringSession = 0;
+% This flag is set, when the user requests to pause resp. continue (if
+% already pausing) the session.
+global requestingPauseRespCont;
+requestingPauseRespCont = 0;
+% The data written in the input callback is corrected such that pauses are
+% not written to the file. This is an exploratory feature for now and might
+% thus fail. We need to notify the user if this is the case.
+global inputDataCorrectionFailed;
+inputDataCorrectionFailed = 0;
+
 %% Configure Cameras and Preview The Screens
 data = init_bcams(data);
 data = side_detection(data);
 data = preview_bcams(data);
 
 %% Open live view of behavior cameras
+recView = RecViewCtrl();
+data.d.recView = recView;
+data = recView.openGUI(data);
+
 data = bcam_view(data);
 
 logger.info('run_experiment', 'Starting behavior camera acquisition.');
@@ -183,8 +201,9 @@ prepare(daqSession);
 
 logger.info('run_experiment', 'Session is starting now ... ');
 startBackground(daqSession);
-% TODO, request actual time step from first input listener callback.
-sessionStartTime = tic; 
+% This is later updated from the actual start time given to the input
+% listener.
+sessionStartTime = now(); 
 
 if p.useExtTrigger
     logger.info('run_experiment', 'Waiting for external trigger ... ');
@@ -206,34 +225,19 @@ if p.useExtTrigger
     maxWaitDur = maxWaitDur + p.extTriggerTimeout;
 end
 wait(daqSession, maxWaitDur);
-logger.info('run_experiment', 'Session finished.');
+
+if daqSession.UserData.d.recView.hasRecStopped()
+    logger.warn('run_experiment', 'Session has been stopped by user.');
+else
+    logger.info('run_experiment', 'Session finished.');
+end
+
+% Save from cleanup.
+sessionInterrupted = daqSession.UserData.d.recView.hasRecStopped();
 
 %% Clean up
-% Clean up DAQ session
-delete(daqSession.UserData.d.inputListener);
-delete(daqSession.UserData.d.errorListener);
-if ~p.useBulkMode
-    delete(daqSession.UserData.d.outputListener);
-end
+cleanupProgram(daqSession);
 release(daqSession);
-
-% Clean up Online Side Detection.
-if p.useOnlineSideDetection
-    stop(daqSession.UserData.d.sideDetectionTimer);
-    delete(daqSession.UserData.d.sideDetectionTimer);
-    fclose(daqSession.UserData.d.serialCommObj);
-end
-
-% Clean up behavior cameras.
-for i = 1:numel(p.bcDeviceID)
-   stop(daqSession.UserData.d.bcVidObjects{i}); 
-end
-stop(daqSession.UserData.d.bcFigureTimer);
-delete(daqSession.UserData.d.bcFigureTimer);
-close(daqSession.UserData.d.bcFigure);
-for i = 1:numel(p.bcDeviceID)
-   delete(daqSession.UserData.d.bcVidObjects{i}); 
-end
 
 %% Convert binary input/output data files to mat files.
 % FIXME to convert the binary data into mat files we currently read it all
@@ -246,7 +250,53 @@ bin2matInput(daqSession);
 % send to the NIDAQ.
 bin2matOutput(daqSession);
 
-logger.info('run_experiment', 'Recordings finished sucessfully.');
+% Save the output windows to a file for debugging purposes and if the input
+% data correction failed, such that the user could repair it.
+if ~p.useBulkMode
+    output_windows = daqSession.UserData.d.outputDataWindows;
+    nidaq_rate = daqSession.Rate;
+    for i = 1:numRecs
+        filename = fullfile(daqSession.UserData.d.expDir{i}, ...
+            'output_windows_debug.mat');
+        save(filename, 'output_windows', 'nidaq_rate');
+    end
+end
+
+if inputDataCorrectionFailed
+    msgbox(['The program tries to ensure the correctness of timestamps' ...
+        ' and input recordings in an online fashion, such that pauses ' ...
+        'are transparent to the user.' newline ...
+        'This correction failed!' newline 'Therefore, use the file ' ...
+        '"input_data_raw.mat" instead of "input_data.mat".' newline ...
+        'Note, that this file contains the raw recordings.'], ...
+        'Input Data Correction Failed', 'warn');
+end
+
+if sessionInterrupted
+    % We don't know the output values, of the interrupted output channels.
+    % Therefore, we set them all to LOW.
+    logger.info('run_experiment', 'Resetting all channels to LOW.');
+    resetAllChannels(p);
+    
+    logger.warn('run_experiment', 'Recording could not finish.');
+    % We did not check the output data for consistency, that has to be done
+    % in a postprocessing step.
+    % Note, that the output data is always written in chunks (or completely
+    % if using bulk mode). The input data depends on the callback
+    % thresholds. The video data depends on the actual time when the user
+    % has stopped the session,
+    msgbox(['The data written in the output folder might have ' ...
+        'inconsistent lengths due to the stopped recording.'], ...
+        'Recording Interrupted', 'warn');
+elseif errorOccurredDuringSession
+    logger.info('run_experiment', ...
+        'An error occurred during the recording.');
+    msgbox(['An error occurred during the session. Please study the ' ...
+        'logfile and output data carefully for unwanted ' ...
+        'consequences.'], 'Error during Session', 'warn');
+else
+    logger.info('run_experiment', 'Recordings finished sucessfully.');
+end
 
 % Copy logfile to folder of remaining recordings.
 clear('log4m');

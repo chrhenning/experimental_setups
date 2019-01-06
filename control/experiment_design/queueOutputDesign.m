@@ -21,27 +21,49 @@
 FIXME this function is very memory inefficient.
 %}
 function queueOutputDesign(session, ~)
-%QUEUEOUTPUTDATA Control the queuing of data for output channels.
-    
+%QUEUEOUTPUTDESIGN Control the queuing of data for output channels.
+    global requestingPauseRespCont;
+            
     logger = log4m.getLogger();
 
     p = session.UserData.p;
     d = session.UserData.d;
     
     if d.duration <= d.timeRef
-        % FIXME we have to explicitly stop the continuous mode. We cannot
+        % We have to explicitly stop the continuous mode. We cannot
         % run "session.stop();" as this would also stop the processing of
         % the data that is still on the NIDAQ!
-        % As a quick fix, we simply send only zeros to the NIDAQ and stop
-        % it, when this method is called the next time.
-        if d.stopSession
-            session.stop();
-        else
-            session.UserData.d.stopSession = true;
-            numOutputChannels = length(session.Channels) - ...
-                numel(p.inputChannel);
-            session.queueOutputData(zeros( ...
-                floor(p.continuousWin * session.Rate), numOutputChannels));
+        % We send zeros to the NIDAQ, until the inputCallback has read the
+        % last data sample (from the actual recording). The input listener
+        % will then stop the session.
+        zeroCyclesAfterRec = d.zeroCyclesAfterRec;
+        zeroCyclesAfterRec = zeroCyclesAfterRec + 1;
+        session.UserData.d.zeroCyclesAfterRec= zeroCyclesAfterRec;
+
+        numSteps = floor(p.continuousWin * session.Rate);
+
+        session.UserData.d.totalStepsPushedSoFar = ...
+            d.totalStepsPushedSoFar + numSteps;
+        % We consider this extra frame as a pause frame, such that its
+        % timestamps don't get written to the output file.
+        session.UserData.d.outputDataWindows = cat(1, ...
+            d.outputDataWindows, [-1, -1, numSteps, ...
+            session.UserData.d.totalStepsPushedSoFar, ...
+            d.recStepsPushedSoFar, 1]);
+
+        numOutputChannels = length(session.Channels) - ...
+            numel(p.inputChannel);
+        session.queueOutputData(zeros(numSteps, numOutputChannels));
+
+        % Sending two empty windows at the end of the session is relatively
+        % normal. The first one is send when the last recording window is
+        % processed. The second one is send when this las recording window
+        % just ended and the input listener is about to receive the last
+        % data.
+        if zeroCyclesAfterRec > 2
+            logger.debug('queueOutputDesign', ['Waiting to end ' ...
+                'the session. Sending another empty window while ' ...
+                'waiting for all inputs to be received.']);
         end
 
         return;
@@ -54,12 +76,43 @@ function queueOutputDesign(session, ~)
     else
         endTime = min(d.duration, startTime + p.continuousWin);
     end
-    
+
     numSteps = floor((endTime - startTime) * session.Rate);
     numStepsDesired = (endTime - startTime) * session.Rate;
+
+    if requestingPauseRespCont == 1
+        requestingPauseRespCont = 0;
+        d.sessionPaused = ~d.sessionPaused;
+        notify(d.recView, 'PauseEv', PauseEventData(d.sessionPaused));
+    end
+    
+    d.totalStepsPushedSoFar = d.totalStepsPushedSoFar + numSteps;
+    if ~d.sessionPaused
+        d.recStepsPushedSoFar = d.recStepsPushedSoFar + numSteps;
+    end
+    
+    d.outputDataWindows = cat(1, d.outputDataWindows, ...
+        [startTime, endTime, numSteps, d.totalStepsPushedSoFar, ...
+         d.recStepsPushedSoFar, d.sessionPaused]);
+    
+    if d.sessionPaused
+        d.outputDataWindows(end, 1:2) = -1;
+        
+        %% Pause Session
+        % If we are pausing the session, we just send zeros accross all
+        % output channels.
+        session.UserData.d = d; % Note, that d.timeRef wasn't set yet!
+        numOutputChannels = length(session.Channels) - ...
+            numel(p.inputChannel);
+        logger.debug('queueOutputDesign', ['Pausing: Queueing zeros ' ...
+            'as output data for a time frame of ' ...
+            num2str(endTime-startTime) ' s].']);
+        session.queueOutputData(zeros(numSteps, numOutputChannels));
+        return;
+    end
     
     if numSteps ~= numStepsDesired && startTime == 0
-        logger.warn('queueOutputData', ['NIDAQ rate, duration of ' ...
+        logger.warn('queueOutputDesign', ['NIDAQ rate, duration of ' ...
             'recording and/or "p.continuousWin" does not allow  ' ...
             'perfect time discretization.']);
     end
@@ -93,10 +146,10 @@ function queueOutputDesign(session, ~)
     analogDesign = getAnalogDesign(session, startTime, numSteps);
     data2Queue = prepareData4Queue(session, data2Queue, analogDesign, ...
         'analog', endTime);
-    
+        
     %d = session.UserData.d;
     
-    % Write designs to file.
+    %% Write designs to file.
     for i = 1:d.numRecs
         filepath = d.tempOutputFileNames{i};
         
@@ -152,7 +205,8 @@ function queueOutputDesign(session, ~)
         fclose(fid);
     end
     
-    logger.debug('queueOutputData', ['Queueing output data for time ' ...
+    %% Queue the data to the NIDAQ
+    logger.debug('queueOutputDesign', ['Queueing output data for time ' ...
         'frame [' num2str(startTime) 's, ' num2str(endTime) 's].']);
     session.queueOutputData(data2Queue);
     

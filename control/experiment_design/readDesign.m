@@ -73,7 +73,7 @@ function dataObj = readDesign(dataObj)
         
         if i == 1
             d.duration = subject.getDuration();
-        elseif d.duration ~= subject.getDuration();
+        elseif d.duration ~= subject.getDuration()
             myError('readDesign', 'Durations of recordings differ.');
         end
                    

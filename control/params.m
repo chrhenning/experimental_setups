@@ -67,6 +67,7 @@ function p = params()
     p.designDir = fullfile('C:', 'Users', 'USERNAME', 'experiment', ...
         'design');
 
+
     %% Experiment Directory
     % Where should we store all the recordings;
     p.rootDir = fullfile('C:', 'Users', 'USERNAME', 'experiment', ...
@@ -158,9 +159,9 @@ function p = params()
     % - 'lrdesign': An additional output channel determines whether the
     %               shock is delivered to the left or right chamber
     %               (typical active avoidance setup). I.e., we expect to
-    %               have 2 shock channels, the first one is simply one when
-    %               a shock is supplied, the second one is one when the
-    %               shock should be supplied to the right chamber, left
+    %               have 2 shock channels, the first one is simply HIGH 
+    %               when a shock is supplied, the second one is HIGH when 
+    %               the shock should be supplied to the right chamber, left
     %               otherwise. I.e., the design field "shock.channel"
     %               determines whether the shock is provided to the left
     %               (shock.channel == 1) or right (shock.channel == 2).
@@ -168,11 +169,13 @@ function p = params()
     %                 not the design decides whether the shock is supplied
     %                 left or right. Instead, an additional digital input
     %                 makes that decision (0 == left, 1 == right).
+    %                 FIXME: Not implemented! Use Shuttle Detection Box for
+    %                 this purpose.
     p.shockMode = 'default';
     % If shocking mode is 'lrposition', then we need the index of the
     % digital input, that determines left or right.
     % TODO: Linear or 2D index?
-    p.shockLRInput = [3];
+    p.shockLRInput = [];
     
     %% Sound Parameters
     % Only if p.useSoundCard == 0.
@@ -206,29 +209,29 @@ function p = params()
     p.analogDAQDeviceID = {};
     
     %% Behavior Cameras
-    %p.bcAdapterName = {'gentl'};
-    p.bcAdapterName = {'tisimaq_r2013_64'};
+    p.bcAdapterName = {'gentl'};
+    %p.bcAdapterName = {'tisimaq_r2013_64'};
     p.bcDeviceID = [1, 2];
-    %p.bcFormat = {'Mono8'};
-    p.bcFormat = {'RGB24 (752x480)'};
+    p.bcFormat = {'Mono8'};
+    %p.bcFormat = {'RGB24 (752x480)'};
     
     % Cameras from different vendors might have different interfaces.
     % Currently, we support the following cameras:
     % - 'guppy': Tested with Allied Vision Guppy PRO F125B.
     % - 'imagingsource': Tested with ImagingSource DMK 23FV024.
-    p.bcCamType = {'imagingsource'};
+    p.bcCamType = {'guppy'};
     
     % It is recommended to set the camera settings with the Image
     % Acquisition Toolbox once and then copy-paste them here.
     % General Settings
     p.bcExposureTime = [45000];
-    p.bcGain = [10.0161, 10.0161];
+    p.bcGain = [3.9849];
     
     % Region of Interest
     % ROI is a 4-tuple: (X-Offset, Y-Offset, Width, Height).
     % Each row has n*4 values, where n is the number of cameras per
     % recording.
-    p.bcROIPosition = [202, 28, 430, 430, 180, 15, 430, 430];
+    p.bcROIPosition = [264, 0, 800, 800, 264, 0, 800, 800];
     
     % File logging
     p.bcLoggingMode = 'disk';
@@ -255,7 +258,7 @@ function p = params()
     % external signal.
     p.useExtTrigger = 0;
     % Specify PFI channel to receive recording trigger.
-    p.extTriggerChannel = 'dev2/PFI1';
+    p.extTriggerChannel = 'dev1/PFI1';
     % Specify timeout for waiting of trigger.
     p.extTriggerTimeout = 60; % in seconds    
     
@@ -297,7 +300,7 @@ function p = params()
     p.sdSoundDuration = 2; % in seconds
     p.sdSoundFreq = [3000, 6000]; % in Hz
     p.sdSoundOnsets = [3, 7]; % in seconds
-    p.sdSoundTypes = {'CS+', 'CS-'}; 
+    p.sdSoundTypes = {'CS+', 'CS-'};  
     
     % Shock Parameters
     p.sdShockDuration = 1; % in seconds
@@ -305,5 +308,22 @@ function p = params()
     % Unused option, no effect yet.
     p.sdShockIntensities = [6e-4, 6e-4]; % in A
     p.sdShockChannels = [-1, -1]; % in A
+    
+    %% Miscellaneous Options
+    % Online correction of recorded data.
+    % This option only makes sense if not using the bulk mode.
+    % This option is only temporarily, as the algorithm hasn't been fully
+    % tested.
+    % If using the continuous mode, the user has the option to pause the
+    % current session. During that time, it might be desirable, that the
+    % written input recordings (as well as their timestamps) are paused as
+    % well. Therefore, we can run an online correction, that corrects the
+    % timestamps and ignores the input data coming from pausing frames.
+    % When should I disable this option? Simply speaking, either if you run
+    % out of resources (for instance, this option will cause the generation
+    % of two output files, one corresponds to the raw data in case the
+    % algorithm fails) or if your session fails because of this algorithm
+    % :) (in which case, you should report the bug).
+    p.correctRecordedInputs = 1;
 end
 

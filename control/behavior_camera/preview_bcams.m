@@ -60,7 +60,6 @@ function dataObj = preview_bcams(dataObj)
     cncBtn.Position(1) = cncBtn.Position(1) + 100;
     
     suptitle('Please check and confirm the behavior camera preview.');
-    axis('square');   
     hImages = cell(num_cams, 1);
     
     num_rows = floor(sqrt(num_cams));
@@ -103,12 +102,10 @@ function dataObj = preview_bcams(dataObj)
 
             set(gca,'Visible','off')
             set(get(gca,'Title'),'Visible','on')
+            
+            axis(gca, 'image')
         end
     end
-
-    % Make sure that previews keep their size.
-    axesHandles = findobj(get(gcf,'Children'), 'flat', 'Type', 'axes');
-    axis(axesHandles, 'equal')
     
     logger.info('preview_bcams', ['Please confirm the camera settings ' ...
         'as shown in the preview window by clicking "ok".']);

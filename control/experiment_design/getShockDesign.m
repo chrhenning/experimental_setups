@@ -34,7 +34,7 @@ function design = getShockDesign(session, startTime, numSteps)
            
             [eventInWin, onsetStep, offsetStep, evOnInd, evOffInd] = ...
                 isEventInWindow(session, startTime, numSteps, ...
-                    event.onset, event.duration);
+                    event.onset, event.duration, -1, 'us');
 
             if eventInWin
                 channelInd = event.channel;

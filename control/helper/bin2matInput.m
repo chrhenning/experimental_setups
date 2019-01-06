@@ -28,24 +28,58 @@ function bin2matInput(session)
     logger = log4m.getLogger();
     
     for i = 1:d.numRecs
-        sourceFN = d.tempInputFileNames{i};
-        targetFN = fullfile(d.expDir{i}, 'input_data.mat');
+        sourceFN = d.tempInputRawFileNames{i};
+        if p.useBulkMode
+            targetFN = fullfile(d.expDir{i}, 'input_data.mat');
+        else
+            targetFN = fullfile(d.expDir{i}, 'input_data_raw.mat');
+        end
+        success = convertData(sourceFN, targetFN, ...
+            session.UserData.triggerTime, p);
+
+        if success
+            logger.info('bin2matInput', ['Raw time stamps and raw ' ...
+                'input channel recordings of recording ' num2str(i) ...
+                ' are stored in ' targetFN '.']);
+        end
         
-        fid = fopen(sourceFN,'r');
+        if p.correctRecordedInputs && ~p.useBulkMode
+            sourceFN = d.tempInputFileNames{i};
+            targetFN = fullfile(d.expDir{i}, 'input_data.mat');
+            success = convertData(sourceFN, targetFN, ...
+                session.UserData.triggerTime, p);
+
+            if success
+                logger.info('bin2matInput', ['Time stamps and input ' ...
+                    'channel recordings of recording ' num2str(i) ...
+                    ' are stored in ' targetFN '.']);
+            end
+        end
+    end
+end
+
+function success = convertData(sourceFN, targetFN, sessionStart, p)
+    success = 1;
+    
+    logger = log4m.getLogger();
+    
+    try
+        fid = fopen(sourceFN, 'r');
         raw = fread(fid, [size(p.inputChannel, 2)+1, inf], 'double');
         fclose(fid);
-        
-        timestamps = raw(1,:);
-        inputData = raw(2:size(raw, 1),:);
-        timestampOffset = session.UserData.triggerTime;
-
-        save(targetFN, 'timestamps', 'inputData', 'timestampOffset', ...
-            '-v7.3');
-    
-        logger.info('bin2matInput', ['Time stamps and input channel ' ...
-            'recordings of recording ' num2str(i) ' are stored in ' ...
-            targetFN '.']);
-        
-        delete(sourceFN);
+    catch
+        logger.error('bin2matInput', ...
+            ['Could not read binary file: ' sourceFN]);
+        success = 0;
+        return;
     end
+
+    timestamps = raw(1,:);
+    inputData = raw(2:size(raw, 1),:);
+    timestampOffset = sessionStart;
+
+    save(targetFN, 'timestamps', 'inputData', 'timestampOffset', ...
+        '-v7.3');
+
+    delete(sourceFN);
 end

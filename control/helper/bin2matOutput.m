@@ -35,9 +35,16 @@ function bin2matOutput(session)
             size(p.shockChannel, 2) + size(p.soundChannel, 2) + ...
             size(p.soundEventChannel, 2) + size(p.digitalChannel, 2) + ...
             size(p.analogChannel, 2);
-        fid = fopen(sourceFN,'r');
-        raw = fread(fid, [numOutputChannels, inf], 'double');
-        fclose(fid);
+
+        try
+            fid = fopen(sourceFN,'r');
+            raw = fread(fid, [numOutputChannels, inf], 'double');
+            fclose(fid);
+        catch
+            logger.error('bin2matOutput', ...
+                ['Could not read binary file: ' sourceFN]);
+            return;
+        end
         
         offset = 1;
         triggerData = raw(offset:offset+size(p.triggerChannel, 2)-1,:);
@@ -60,7 +67,7 @@ function bin2matOutput(session)
             'seventData', 'digitalData', 'analogData', '-v7.3');
     
         logger.info('bin2matOutput', ['Output channel data of ' ...
-            'recording ' num2str(i) ' are stored in ' targetFN '.']);
+            'recording ' num2str(i) ' is stored in ' targetFN '.']);
         
         delete(sourceFN);
     end

@@ -1,16 +1,16 @@
 # Conducting sophisticated Fear Conditioning, Active Avoidance and other Experiments with a Single Software 
 
-This repository is meant to control fear conditioning (FC), active avoidance (AA) or other experimental setups. The software was developed in the lab of [Benjamin Grewe](https://www.ini.uzh.ch/people/bgrewe). The code allows a simple way to design and run complex experiments and record for multiple subjects in parallel; all controlled and aligned with a single computer. It also contains an expressive evaluation pipeline for FC experiments to automatically evaluate the outcome of an experiment once the data is acquired.
+This repository is meant to control fear conditioning (FC), active avoidance (AA) or other experimental setups. The software was developed in the lab of [Benjamin Grewe](https://www.ini.uzh.ch/people/bgrewe). The code allows a simple way to design and run complex real-time experiments and record for multiple subjects in parallel; all controlled and aligned with a single computer. It also contains an expressive evaluation pipeline for FC experiments to automatically evaluate the outcome of an experiment once the data is acquired.
 
 ## Installation
 
 The software is developed in Matlab (tested with Matlab R2017b). It makes use of several toolboxes, such as the [Image Acquisition Toolbox](https://ch.mathworks.com/products/imaq.html) and the [Data Acquisition Toolbox](https://ch.mathworks.com/products/daq.html).
 
-Before running the programs, make sure that all the **required libraries** are downloaded and stored in the folder `lib`. A list of all required libraries and their download links are provided in the `lib` folder.
+Before running the programs, make sure that all the **required libraries** are downloaded and stored in the folder [lib](lib). A list of all required libraries and their download links are provided in the [lib](lib) folder.
 
 ## Documentation
 
-More documentation is provided in the folder `docs`. The code is well documented and should be straight-forward to use by users, that are familiar with Matlab. After reading the documentation, one should start by exploring the repository (just opening files and reading their docstrings). Additional documentation can be requested from <henningc@ethz.ch>.
+More documentation is provided in the folder [docs](docs). The code is well documented and should be straight-forward to use by users, that are familiar with Matlab. After reading the documentation, one should start by exploring the repository (just opening files and reading their docstrings). Additional documentation can be requested from <henningc@ethz.ch>.
 
 ## Experimental Setup
 
@@ -41,7 +41,11 @@ We now provide a detailed explanation for some of the above folders.
 
 ### Control
 
-The fear conditioning or active-avoidance setup is controlled by the `run_experiment` script in the folder `control`. An experiment is configured via `params.m` in the same folder. Recordings can either be controlled by a design file or generated ad-hoc (note, automatically generated design files only allow very simplistic designs).
+The setup is controlled by the [run_experiment](control/run_experiment.m) script in the folder [control](control). The control software provides a user-friendly way to conduct an experiment. Its focus lays on **ensuring the correct timing of all stimuli, such that they can be precisely aligned with neural recordings**.
+
+![A screenshot of the control software during a recording. Note, the content is blurred.](docs/imgs/recording_view_screenshot.PNG)
+
+An experiment is configured via [params.m](control/params.m) in the same folder. Recordings can either be controlled by a design file or generated ad-hoc (note, automatically generated design files only allow very simplistic designs).
 
 Here is a short summary of the main features currently implemented (June 24th, 2018):
 * Capability to run multiple recordings in parallel
@@ -51,12 +55,13 @@ Here is a short summary of the main features currently implemented (June 24th, 2
 * Sounds can be played via the NIDAQ board or via the soundcard (in which case one can record them to correct timing afterwards)
 * Recordings can be started via an external trigger
 * Arbitrary trigger signals can be generated
+* Sessions can be paused and terminated
 
 ### Experiments
-All experiment related scripts should be in the folder `experiments`. The subfolders contain code specific to an experiment, including how to generate the design file. Note, that some experiments may use outdated design file formats. One can always check the design file format via the script `misc/experiment_design/check_design_file.m`. In the folder `experiments/examples` are examples specifically designed to make new users familiar with the design file programming. 
+All experiment related scripts should be in the folder [experiments](experiments). The subfolders contain code specific to an experiment, including how to generate the design file. Note, that some experiments may use outdated design file formats. One can always check the design file format via the script [check_design_file](misc/experiment_design/check_design_file.m). In the folder [experiments/examples](experiments/examples) are examples specifically designed to make new users familiar with the design file programming. 
 
 ### Evaluation
-Preliminary evaluation scripts are available in the folder `evaluation`. **Note**, we currently provide only code for FC experiments. The provided evaluation pipeline only looks at the animals behavior.
+Preliminary evaluation scripts are available in the folder [evaluation](evaluation). **Note**, we currently provide only code for FC experiments. The provided evaluation pipeline only looks at the animals behavior.
 
 The evaluation code requires that freezing traces have been extracted beforehand. The freezing detection software is currently hosted in another repository *FreezingDetection*. To get access to our freezing detection pipeline, please contact <henningc@ethz.ch> or <behret@ethz.ch>.
 
@@ -76,10 +81,10 @@ The design file is one of the most important aspects, as it completely defines t
 
 The design file itself is a file named `experiment.mat`, that contains a variable `experiment`.
 
-The design file is the only piece that a user has to contribute to control its experiment with this software collection. It adheres a certain format that can be checked via the script `misc/experiment_design/check_design_file.m`.
+The design file is the only piece that a user has to contribute to control its experiment with this software collection. It adheres a certain format that can be checked via the script [check_design_file](misc/experiment_design/check_design_file.m).
 
 The design file is contained in the design folder (which may incorparate other files that are referenced in the design file via relative paths (e.g., sound files)). The experiment is designed in a tree structure (where edges may be multi-edges). The first level are *cohorts*, which themselves split into *groups* (one may also think of groups and subgroups). These are divided into *sessions*, which are split into *subjects*.
 
-Please run the script `experiments/examples/fear_conditioning/generate_fc_design_file.m` to generate an example design folder. The script expects an output folder name as argument. Please explore the resulting `experiment.mat` file (it also generates a JSON file with the same content, in case this is easier to read).
+Please run the script [experiments/examples/fear_conditioning/generate_fc_design_file.m](experiments/examples/fear_conditioning/generate_fc_design_file.m) to generate an example design folder. The script expects an output folder name as argument. Please explore the resulting `experiment.mat` file (it also generates a JSON file with the same content, in case this is easier to read).
 
-A detailed explanantion of design file format can be found in the `docs` folder.
+A detailed explanantion of design file format can be found in the [docs](docs) folder.

@@ -21,7 +21,8 @@
 
 function [eventInWin, onsetStep, offsetStep, evOnsetStep, evOffsetStep] ...
     = isEventInWindow(session, winStart, numStepsInWin, eventOnset, ...
-                      eventDuration, eventDurInSteps)
+                      eventDuration, eventDurInSteps, eventSource, ...
+                      eventType, eventChannel)
 %ISEVENTINWINDOW This method checks, whether a specific event occurs within
 %a given time window.
 %   
@@ -34,6 +35,13 @@ function [eventInWin, onsetStep, offsetStep, evOnsetStep, evOffsetStep] ...
 %   - eventDuration: Duration of event (in seconds). Value is ignored if
 %                    eventDurInSteps is given.
 %   - eventDurInSteps: (optional) Duration of event (in NIDAQ time steps).
+%   - eventSource: (optional) Used for the GUI event logger. The source of
+%                  the event (may be 'sound', 'us', 'analog' or 'digital').
+%   - eventType: (optional) Used for the GUI event logger. The type of the
+%                event (not specified for US events).
+%   - eventChannel: (optional) Used for the GUI event logger. For analog or
+%                   digital events, this denoted the channel, where the
+%                   event is comming from.
 %
 %   Returns:
 %   - eventInWin: Flag, whether the event appears within the specified time
@@ -54,7 +62,7 @@ function [eventInWin, onsetStep, offsetStep, evOnsetStep, evOffsetStep] ...
     endStep = startStep + numStepsInWin - 1;
     
     onsetStep = floor(eventOnset * session.Rate);
-    if (~exist('eventDurInSteps', 'var'))
+    if ~exist('eventDurInSteps', 'var') || eventDurInSteps == -1
         numStepsEvent = floor(eventDuration * session.Rate);
     else
         numStepsEvent = eventDurInSteps;
@@ -136,6 +144,23 @@ function [eventInWin, onsetStep, offsetStep, evOnsetStep, evOffsetStep] ...
         offsetStep = -1;
         evOnsetStep = -1;
         evOffsetStep = -1;
+    end
+    
+    if evOnsetStep == 1 && exist('eventSource', 'var')
+        durMin = floor(eventOnset / 60);
+        durSec = round(mod(eventOnset, 60));
+        evStr = sprintf('[%02d:%02d] - %s event : duration - %d sec', ...
+            durMin, durSec, eventSource, eventDuration);
+        if ~strcmp(eventSource, 'us')
+            evStr = sprintf('%s, type - %s', evStr, eventType);
+        end
+        if exist('eventChannel', 'var')
+            evStr = sprintf('%s, %s channel - %d', evStr, eventSource, ...
+                eventChannel);
+        end
+        evStr = [evStr '.'];
+        
+        session.UserData.d.recView.logEvent(evStr);
     end
 end
 

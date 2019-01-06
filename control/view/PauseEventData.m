@@ -12,23 +12,23 @@
 % See the License for the specific language governing permissions and
 % limitations under the License.
 %{
-@title           :myError.m
+@title           :PauseEventData.m
 @author          :ch
-@contact         :christian@ini.ethz.ch
-@created         :02/01/2018
+@contact         :henningc@ethz.ch
+@created         :08/27/2018
 @version         :1.0
 
-An error function wrapper.
+Capsulates data, that the GUI can use to know whether a pause request or a
+continue request was performed.
 %}
-function myError(errSrc, errMsg)
-%MYERROR An wrapper of the error function that logs the message before
-%throwing the error.
-    global errorOccurredDuringSession;
-    errorOccurredDuringSession = 1;
-
-    logger = log4m.getLogger();
-
-    logger.fatal(errSrc, errMsg);
-    error(errMsg);
+classdef (ConstructOnLoad) PauseEventData < event.EventData
+   properties
+      IsPausing
+   end
+   
+   methods
+      function data = PauseEventData(isPausing)
+         data.IsPausing = isPausing;
+      end
+   end
 end
-

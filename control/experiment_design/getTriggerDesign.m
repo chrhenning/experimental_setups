@@ -53,6 +53,7 @@ function design = getTriggerDesign(session, startTime, numSteps)
             if p.triggerIsAnalog(i)
                 singleCycle = singleCycle * p.triggerAmplitude(i);
             end
+            periodSize = numel(singleCycle);
             
             % The start time might be in the middle of a period. Similarly,
             % the end time might also be in the middle of a period. So the
@@ -61,8 +62,15 @@ function design = getTriggerDesign(session, startTime, numSteps)
             stepsNeeded = numSteps;
             
             % Start index in first cycle.
-            startIndex = mod(startTime * session.Rate, periodSize) + 1;
+            startIndex = floor(mod(startTime * session.Rate, ...
+                periodSize)) + 1;
+
             traceStart = singleCycle(startIndex:end, :);
+            % What if there is less than one period in the current window?
+            if numel(traceStart) > stepsNeeded
+                traceStart = ...
+                    singleCycle(startIndex:startIndex+stepsNeeded-1, :);
+            end
             stepsNeeded = stepsNeeded - numel(traceStart);
             
             numFullCycles = floor(stepsNeeded / periodSize);

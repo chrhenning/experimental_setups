@@ -31,6 +31,8 @@ function playSounds(session, sessionStartTime)
 %   FIXME: The function expects sound events to be ordered.
 %   FIXME: Primitive function, does not play partial sounds if time already
 %   progressed passed the sound onset.
+    global errorOccurredDuringSession;
+
     logger = log4m.getLogger();
     logger.warn('playSounds', ['Sounds are played via sound card. ' ...
         'Precise timing cannot be ensured!']);
@@ -51,11 +53,34 @@ function playSounds(session, sessionStartTime)
     for i = 1:d.subjects{1}.numSounds()
         sndEvent = d.subjects{1}.getSound(i);
         
-        onsetTime = sndEvent.onset;
+        onsetTime = getActualOnset(sndEvent.onset, sessionStartTime, ...
+            session);
         
-        pause((onsetTime - eps) - toc(sessionStartTime));
+        while (onsetTime - eps) > elapsedTime(sessionStartTime)
+            % If the actual start time is known yet.
+            if isfield(session.UserData, 'triggerTime')
+                sessionStartTime = session.UserData.triggerTime;
+            end
+            
+            % If the recording has been stopped by the user, we exit this
+            % function early.
+            if session.UserData.d.recView.hasRecStopped()
+                return;
+            end
+            
+            % If the session has ended due to an occurred error, we also
+            % return this function.
+            if errorOccurredDuringSession
+                return;
+            end
+            
+            pause(min(1, (onsetTime-eps) - elapsedTime(sessionStartTime)));
+            
+            onsetTime = getActualOnset(sndEvent.onset, ...
+                sessionStartTime, session);
+        end
         
-        while toc(sessionStartTime) < onsetTime
+        while elapsedTime(sessionStartTime) < onsetTime
             % busy wait
         end
         
@@ -63,6 +88,102 @@ function playSounds(session, sessionStartTime)
         
         logger.info('playSounds', ['Playing sound '  num2str(i) ...
             ', which has the sound type ' sndEvent.type '.']);
+        
+        % Log event in GUI.
+        durMin = floor(sndEvent.onset / 60);
+        durSec = round(mod(sndEvent.onset, 60));
+        evStr = sprintf(['[%02d:%02d] - sound event : duration - %d ' ...
+            'sec, type - %s.'], durMin, durSec, sndEvent.duration, ...
+            sndEvent.type);
+        session.UserData.d.recView.logEvent(evStr);
     end
+end
+
+function elapsedSecs = elapsedTime(refTime)
+    % Compute the elapsed seconds since a reference time point.
+    elapsedSecs = round((now - refTime) * 24 * 60 * 60);
+end
+
+function onset = getActualOnset(origOnset, startTime, session)
+    % This method uses the function "correctOnset" to correct the onset
+    % time. It will stall until the current pause is over.
+    %
+    % Args:
+    % See method "correctOnset".
+    %
+    % Returns:
+    % The new onset time.
+    onset = -1;
+    while onset == -1
+        [onset, waitSec] = correctOnset(origOnset, startTime, session);
+        if onset == -1
+            pause(waitSec);
+        end
+    end
+end
+
+function [onset, waitSecs] = correctOnset(onset, startTime, session)
+    % CORRECTONSET Correct the onset of an event, given that pause windows
+    % may appear within the session.
+    %
+    % Note, this function does not consider the length of a sound or
+    % whether this length will interfere with a requested pause window.
+    %
+    % Args:
+    % - onset: The original onset of the event (acc. to design).
+    % - startTime: The start time of the session.
+    % - session: The current NIDAQ session.
+    %
+    % Returns:
+    % - onset: The corrected onset. This is -1, if we are currently in a
+    %          pause window, were no tones should be played.
+    % - waitSecs: Usually -1, except if onset is -1. Then this number tells
+    %             us, how long we have to wait until the end of the
+    %             current pause window.
+    waitSecs = -1;
+    
+    wins = session.UserData.d.outputDataWindows;
+    if isempty(wins)
+       % We cannot correct the onset yet. Though, that should be no
+       % problem, as the first window is always no pause.
+       return;
+    end
+    
+    elapsedSecs = elapsedTime(startTime);    
+    numSteps = floor(elapsedSecs * session.Rate);
+    
+    startSteps = [0; wins(1:end-1, 4)];
+    % In which window are we currently in?
+    latestWinInd = find(numSteps >= startSteps & numSteps < wins(:, 4), ...
+        1, 'last');
+    
+    % Shouldn't happen, but we don't know yet the current window. Normally,
+    % the window was queued to the NIDAQ long before we reach a time step
+    % within the window.
+    if isempty(latestWinInd)
+        logger = log4m.getLogger();
+        logger.warn('playSounds', ['Could not ensure that sound onset ' ...
+            'time is correct.']);
+        
+        % All steps, that are considered pauses so far.
+        pausedSteps = wins(end, 4) - wins(end, 5);
+        % Simply add all steps, that were in paused windows so far.
+        onset = onset + pausedSteps / session.Rate; 
+        return;
+    end
+    
+    % The session is currently paused, then we wait until the end of the
+    % current window before we check again.
+    if wins(latestWinInd, 6) == 1
+        onset = -1;
+        waitSecs = (wins(latestWinInd, 4) - numSteps) / session.Rate; 
+        return;
+    end
+    
+    numSteps = numSteps - (wins(latestWinInd, 4) - wins(latestWinInd, 5));
+    % Actual time, considering pause windows.
+    elapsedSecsActual = numSteps / session.Rate; 
+    
+    onset = onset + (elapsedSecs - elapsedSecsActual);
 end
 
