@@ -12,7 +12,7 @@ in the console (ensure, that the current Matlab folder is the folder that contai
 
 ## General hints
 
-* A contant HIGH signal for the duration of a recording can be generated via a trigger channel by setting `p.triggerRate` to 0. This is necessary, for instance, when triggering a recording with one of the custom Miniscopes.
+* A constant HIGH signal for the duration of a recording can be generated via a trigger channel by setting `p.triggerRate` to 0. This is necessary, for instance, when triggering a recording with one of the custom Miniscopes.
 * If for any reason, a recording has to be aborted, it is advisable to restart Matlab.
 * The configurations in [params.m](params.m) are checked via the function [preprocessParams.m](helper/preprocessParams.m). This function doesn't produce user-friendly messages at the moment. If an assertion in this function fails for any reason, you have most likely a mistake in your [params.m](params.m). Try to understand why the assertion failed and revise your configuration.
 * At the moment, **there must be at least one (analog) input channel specified** in the [params.m](params.m), as we can't access the NIDAQ timestamps otherwise. If no input channel is needed, just specify an unused channel (you can delete the recorded data afterwards).
