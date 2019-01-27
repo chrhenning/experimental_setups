@@ -295,7 +295,7 @@ elseif errorOccurredDuringSession
         'logfile and output data carefully for unwanted ' ...
         'consequences.'], 'Error during Session', 'warn');
 else
-    logger.info('run_experiment', 'Recordings finished sucessfully.');
+    logger.info('run_experiment', 'Recordings finished successfully.');
 end
 
 % Copy logfile to folder of remaining recordings.
