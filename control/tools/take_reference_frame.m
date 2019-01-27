@@ -154,7 +154,7 @@ for r = 1:num_recs
 end
 
 disp(['Please select areas to exclude from the "side detection" and ' ...
-    'press "safe".']);
+    'press "save".']);
 waitfor(fig);
 
 %% Clean up behavior cameras.
